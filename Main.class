@@ -1,0 +1,406 @@
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+
+public class MainExe {
+
+	boolean wp = true;
+	PReader pr = new PReader();
+	final int POINT = 0;
+	final int POLYLINE = 1;
+	String outpath;
+	double x0;
+	double y0;
+	double r0;
+	int n0;
+	double theta1;
+	double theta2;
+	Point sector1, sector2;
+	ArrayList<Point> points;
+	ArrayList<Line> lines;
+	ArrayList<Line> sline;
+	ArrayList<Point> spoint;
+	Point center;
+
+	public void read() {
+		outpath = JOptionPane.showInputDialog(null, "输出文件的具体路径");
+		
+		String x = JOptionPane.showInputDialog(null, "中心点x,y坐标:111.1 111.1");
+		int i;
+		for (i = 0; i < x.length(); i++) {
+			if (x.charAt(i) == ' ') {
+				x0 = Double.parseDouble(x.substring(0, i));
+				y0 = Double.parseDouble(x.substring(i + 1, x.length()));
+				break;
+			}
+		}
+		center = new Point(x0, y0);
+		String rr = JOptionPane.showInputDialog(null, "最大半径");
+		r0 = Double.parseDouble(rr);
+		String nn = JOptionPane.showInputDialog(null, "圈数");
+		n0 = Integer.parseInt(nn);
+		String theta = JOptionPane.showInputDialog(null,
+				"扇形两边的角度，0-360，如果要整个圆就输入：0 360");
+		//
+
+		pointsAns = new int[n0];
+		linesAns = new double[n0];
+
+		for (i = 0; i < theta.length(); i++) {
+			if (theta.charAt(i) == ' ') {
+				theta1 = Double.parseDouble(theta.substring(0, i));
+				theta2 = Double.parseDouble(theta.substring(i + 1,
+						theta.length()));
+				break;
+			}
+		}
+		sector1 = new Point(Math.cos(theta1 / 180 * Math.PI) * 1000 + center.x,
+				center.y + Math.sin(theta1 / 180 * Math.PI) * 1000);
+		sector2 = new Point(Math.cos(theta2 / 180 * Math.PI) * 1000 + center.x,
+				center.y + Math.sin(theta2 / 180 * Math.PI) * 1000);
+
+		readLine();
+		Object[] e = { "yes", "no" };
+		int ppp = JOptionPane.showOptionDialog(null, "要不要算点", " ",
+				JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
+				null, e, e[1]);
+		if (ppp == 0)
+			wp = true;
+		else
+			wp = false;
+		if (wp)
+			readPoint();
+		System.out.println(lines.size());
+		processSector();
+		System.out.println("lines: " + sline.size() + " sector process over");
+		processLine();
+		System.out.println("line process over");
+		if (wp)
+			processPoint();
+		System.out.println("point process over");
+		try {
+			write();
+		} catch (IOException ee) {
+
+			ee.printStackTrace();
+		}
+
+		JOptionPane.showMessageDialog(null, "done");
+	}
+
+	private void processSector() {
+		spoint = points;
+		sline = new ArrayList<Line>();
+		// TODO a
+		System.out.println(lines.size());
+
+		for (int i = lines.size() - 1; i >= 0; i--) {
+
+			// if (i>100)continue;
+
+			Point a = lines.get(i).p1;
+			Point b = lines.get(i).p2;
+			if (checkIn(center, a)) {
+				if (checkIn(center, b)) {
+					sline.add(new Line(a, b));
+				} else {
+					Point intersect = intersect(a, b, center, sector1);
+					if (inLine(intersect, sector1) && inLine2(intersect, a, b)) {
+					} else {
+						intersect = intersect(a, b, center, sector2);
+					}
+					Line nl = new Line(a, intersect);
+					if (intersect != null) {
+						sline.add(nl);
+					}
+
+				}
+			} else {
+				if (checkIn(center, b)) {
+					Point intersect = intersect(a, b, center, sector1);
+					if (inLine(intersect, sector1) && inLine2(intersect, a, b)) {
+					} else {
+						intersect = intersect(a, b, center, sector2);
+					}
+					if (intersect != null) {
+						Line nl = new Line(b, intersect);
+						sline.add(nl);
+					}
+				} else {
+					Point intersect1 = intersect(a, b, center, sector1);
+					Point intersect2 = intersect(a, b, center, sector2);
+					if (intersect1 != null && inLine(intersect1, sector1)
+							&& inLine2(intersect1, a, b)) {
+						Line nl = new Line(intersect1, intersect2);
+						sline.add(nl);
+					}
+
+				}
+			}
+		}
+	}
+
+	private boolean inLine2(Point intersect, Point a, Point b) {
+		double p = intersect.x - a.x;
+		double q = b.x - a.x;
+		double t = p / q;
+		if (t >= 0 && t <= 1)
+			return true;
+		return false;
+
+	}
+
+	private boolean inLine(Point intersect1, Point sector12) {
+		if (intersect1.x == center.x) {
+			if (intersect1.y == center.y) {
+				return true;
+			} else {
+				if ((intersect1.y - center.y) / (sector12.y - center.y) > 0) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+		} else {
+			if ((sector12.x - center.x) / (intersect1.x - center.x) >= 0) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+
+	private boolean checkIn(Point center2, Point a) {
+		if (theta1>theta2){
+			if (a.x == center2.x) {
+				if (a.y >= center2.y) {
+					if (theta1 >= 90 && theta2 >= 90)
+						return true;
+					else
+						return false;
+				} else {
+					if (theta1 >= 270 && theta2 >= 270)
+						return true;
+					else
+						return false;
+				}
+			} else {
+				double cline = (a.y - center2.y) / (a.x - center2.x);
+				double angle = Math.atan(cline);
+				angle = angle / Math.PI * 180;
+				if (angle < 0)
+					angle += 180;
+				if (a.y < center2.y)
+					angle += 180;
+				if (angle <= theta2 || angle >= theta1)
+					return true;
+				else
+					return false;
+			}
+		}
+		if (a.x == center2.x) {
+			if (a.y >= center2.y) {
+				if (theta1 <= 90 && theta2 >= 90)
+					return true;
+				else
+					return false;
+			} else {
+				if (theta1 <= 270 && theta2 >= 270)
+					return true;
+				else
+					return false;
+			}
+		} else {
+			double cline = (a.y - center2.y) / (a.x - center2.x);
+			double angle = Math.atan(cline);
+			angle = angle / Math.PI * 180;
+			if (angle < 0)
+				angle += 180;
+			if (a.y < center2.y)
+				angle += 180;
+			if (angle >= theta1 && angle <= theta2)
+				return true;
+			else
+				return false;
+		}
+	}
+
+	private Point intersect(Point a0, Point a1, Point b0, Point b1) {
+		double x1 = a0.x, y1 = a0.y, x2 = a1.x, y2 = a1.y;
+		double x3 = b0.x, y3 = b0.y, x4 = b1.x, y4 = b1.y;
+
+		double x = ((x1 - x2) * (x3 * y4 - x4 * y3) - (x3 - x4)
+				* (x1 * y2 - x2 * y1))
+				/ ((x3 - x4) * (y1 - y2) - (x1 - x2) * (y3 - y4));
+
+		double y = ((y1 - y2) * (x3 * y4 - x4 * y3) - (x1 * y2 - x2 * y1)
+				* (y3 - y4))
+				/ ((y1 - y2) * (x3 - x4) - (x1 - x2) * (y3 - y4));
+		return new Point(x, y);
+	}
+
+	@SuppressWarnings("unused")
+	private Point intersect1(Point a0, Point a1, Point b0, Point b1) {
+		double Delta_X1 = a0.x - a1.x;
+		double Delta_Y1 = a0.y - a1.y;
+		double Delta_X2 = b0.x - b1.x;
+		double Delta_Y2 = b0.y - b1.y;
+
+		if (Delta_X1 == 0) {
+			if (Delta_X2 == 0)
+				return null;
+			else {
+				double K2 = Delta_Y2 / (Delta_X2);
+				return new Point(a1.x, K2 * (a1.x - b1.x) + b1.y);
+			}
+		} else if (Delta_X2 == 0) {
+			double K1 = Delta_Y1 / (Delta_X1);
+			return new Point(b1.x, K1 * (b1.x - a1.x) + a1.y);
+		} else {
+			double K1 = Delta_Y1 / ((Delta_X1));
+			double K2 = Delta_Y2 / ((Delta_X2));
+			if (K1 == K2)
+				return null;
+			else {
+				double t = (b1.y - a1.y - (K2 * b1.x - K1 * b1.x)) / (K1 - K2);
+				return new Point(t, K1 * (t - a1.x) + a1.y);
+
+			}
+		}
+	}
+
+	public double[] linesAns;
+
+	private void processLine() {
+		for (int k = sline.size() - 1; k >= 0; k--) {
+			Line l = sline.get(k);
+			@SuppressWarnings("unused")
+			double pre, len = 0;
+			for (int i = 1; i <= n0; i++) {
+				pre = len;
+				len = intsectLine(l, r0 * (double) i / (double) n0);
+				linesAns[i - 1] += len;
+			}
+		}
+	}
+
+	private double intsectLine(Line l, double d) {
+		Point a = l.p1;
+		Point b = l.p2;
+		if (checkIn1(a, d)) {
+			if (checkIn1(b, d)) {
+
+				return l.len();
+			} else {
+				double o = l.orth(center);
+
+				double ans = l.len() + Math.sqrt(d * d - o * o)
+						- Math.sqrt(leng2(b, center) - o * o);
+
+				return ans;
+			}
+		} else {
+			if (checkIn1(b, d)) {
+				double o = l.orth(center);
+				double ans = l.len() + Math.sqrt(d * d - o * o)
+						- Math.sqrt(leng2(a, center) - o * o);
+				return ans;
+			} else {
+				double o = l.orth(center);
+				if (o < d) {
+					double ans = 2 * Math.sqrt(d * d - o * o);
+					double a1 = Math.sqrt(leng2(a, center) - o * o)
+							+ Math.sqrt(leng2(b, center) - o * o);
+					if (a1 - l.len() <= 0.01)
+						return ans;
+					else
+						return 0;
+				} else {
+					return 0;
+				}
+			}
+		}
+	}
+
+	private double leng2(Point p1, Point p2) {
+		double le = Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2);
+		return le;
+	}
+
+	private boolean checkIn1(Point b, double d) {
+		if (leng2(b, center) <= d * d)
+			return true;
+		return false;
+	}
+
+	public int[] pointsAns;
+
+	private void processPoint() {
+		double[] dis = new double[spoint.size()];
+		for (int i = 0; i < spoint.size(); i++) {
+			dis[i] = Math.sqrt(Math.pow(center.x - spoint.get(i).x, 2)
+					+ Math.pow(center.y - spoint.get(i).y, 2));
+
+		}
+		Arrays.sort(dis);
+
+		int cur = 0;
+		for (int i = 1; i <= n0; i++) {
+			while (cur < dis.length && dis[cur] < (r0 * (double) i / n0)) {
+				cur++;
+			}
+			pointsAns[i - 1] = cur;
+		}
+
+	}
+
+	private void readLine() {
+		JFileChooser fd = new JFileChooser();
+		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		fd.setDialogTitle("LINE");
+		fd.showOpenDialog(null);
+
+		File f = fd.getSelectedFile();
+		lines = pr.readLine(f.getAbsolutePath());
+	}
+
+	private void readPoint() {
+		JFileChooser fd = new JFileChooser();
+		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		fd.setDialogTitle("POINT");
+		fd.showOpenDialog(null);
+
+		File f = fd.getSelectedFile();
+
+		points = pr.readPoint(f.getAbsolutePath());
+	}
+
+	private void write() throws IOException {
+		File o = new File(outpath);
+		BufferedWriter bf = new BufferedWriter(new OutputStreamWriter(
+				new FileOutputStream(o), "UTF-8"));
+		for (int i = 0; i < n0; i++) {
+			if (wp) {
+				bf.write(Integer.toString(pointsAns[i]));
+				bf.write(" ");
+			}
+			bf.write(Double.toString(linesAns[i]));
+			bf.newLine();
+		}
+		bf.flush();
+		bf.close();
+
+	}
+
+	public static void main(String[] args) {
+		MainExe me = new MainExe();
+		me.read();
+	}
+}
