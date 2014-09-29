@@ -1,0 +1,35 @@
+//686185.917 4865321.283
+
+public class Line {
+
+	Point p1;
+	Point p2;
+	public Line(Point a, Point b) {
+		p1=a;
+		p2=b;
+	}
+	public double len() {
+		double le=Math.sqrt(Math.pow(p1.x-p2.x,2)+Math.pow(p1.y-p2.y,2));
+		return le;
+	}
+	public double orth(Point center) {
+		double A;   
+	    double B;  
+	    double C;  
+	    A = (p1.y - p2.y)  
+	    		/ Math.sqrt(Math.pow((p1.y - p2.y), 2)  
+	    				+ Math.pow((p1.x - p2.x), 2));  
+	    B = (p2.x - p1.x)  
+	    		/ Math.sqrt(Math.pow((p1.y - p2.y), 2)  
+	    				+ Math.pow((p1.x - p2.x), 2));  
+	    C = (p1.x * p2.y - p2.x * p1.y)  
+	    		/ Math.sqrt(Math.pow((p1.y - p2.y), 2)  
+	    				+ Math.pow((p1.x - p2.x), 2));  
+
+	    double x=center.x;
+	    double y=center.y;
+	    double d = Math.abs(A * (x) + B * (y) + C)/Math.sqrt(Math.pow(A,2)+Math.pow(B,2));  
+	    return d;  
+	    
+	}
+}
